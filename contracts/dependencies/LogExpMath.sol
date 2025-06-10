@@ -93,6 +93,13 @@ library LogExpMath {
      *
      * Reverts if ln(x) * y is smaller than `MIN_NATURAL_EXPONENT`, or larger than `MAX_NATURAL_EXPONENT`.
      */
+    // 使用公式：x^y = exp(y * ln(x))
+    // 實際例子：
+    // 假設我們要計算 2 的 3 次方（2^3）：
+    // 先計算 ln(2)
+    // 將結果乘以 3
+    // 再計算 exp(3 * ln(2))
+    // 最後得到 8
     function pow(uint256 x, uint256 y) internal pure returns (uint256) {
         if (y == 0) {
             // We solve the 0^0 indetermination by making it equal one.

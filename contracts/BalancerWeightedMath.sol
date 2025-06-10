@@ -203,7 +203,7 @@ library BalancerWeightedMath {
         uint256 power = base.powUp(exponent);
 
         // Because of rounding up, power can be greater than one. Using complement prevents reverts.
-        return balanceOut.mulDown(power.complement());
+        return balanceOut.mulDown(power.complement()); //a0 = b0 * (1 - power)
     }
 
     /**

@@ -2,31 +2,8 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import Decimal from 'decimal.js';
+import { WAD, mulWadUp, divWadUp, rpow } from '../utils/FixedPointMath';
 
-// WAD helpers for 18 decimals
-const WAD = new Decimal("1e18");
-function mulWadUp(a: Decimal, b: Decimal): Decimal {
-    return a.mul(b).add(WAD).sub(1).div(WAD).floor();
-}
-function divWadUp(a: Decimal, b: Decimal): Decimal {
-    return a.mul(WAD).add(b).sub(1).div(b).floor();
-}
-function rpow(base: Decimal, exp: number, wad: Decimal): Decimal {
-    let result = wad;
-    let x = base;
-    let n = exp;
-    while (n > 0) {
-        if (n % 2 === 1) {
-            result = result.mul(x).div(wad).floor();
-        }
-        x = x.mul(x).div(wad).floor();
-        n = Math.floor(n / 2);
-    }
-    return result;
-}
-function divWadDown(a: Decimal, b: Decimal): Decimal {
-    return a.mul(WAD).div(b).floor();
-}
 
 describe("ExponentialCurve", function () {
     let owner: any;
@@ -73,15 +50,15 @@ describe("ExponentialCurve", function () {
             );
             
             // 鏈下計算
-            const spotPriceD = new Decimal(spotPrice.toString());
-            const deltaD = new Decimal(delta.toString());
-            const deltaPowN = rpow(deltaD, numItems, WAD);
-            const newSpotPrice = mulWadUp(spotPriceD, deltaPowN);
-            const buySpotPrice = mulWadUp(spotPriceD, deltaD);
-            const numerator = deltaPowN.minus(WAD);
-            const denominator = deltaD.minus(WAD);
-            const frac = divWadUp(numerator, denominator);
-            const inputValue = mulWadUp(buySpotPrice, frac);
+            const spotPriceD = new Decimal(spotPrice.toString());  // p_0: 初始價格
+            const deltaD = new Decimal(delta.toString());          // d: 價格增長率
+            const deltaPowN = rpow(deltaD, numItems, WAD);        // d^n: 價格增長率的 n 次方
+            const newSpotPrice = mulWadUp(spotPriceD, deltaPowN); // p_n = p_0 * d^n: 新的現貨價格
+            const buySpotPrice = mulWadUp(spotPriceD, deltaD);    // p_1 = p_0 * d: 購買時的價格
+            const numerator = deltaPowN.minus(WAD);               // d^n - 1: 分子
+            const denominator = deltaD.minus(WAD);                // d - 1: 分母
+            const frac = divWadUp(numerator, denominator);        // (d^n - 1)/(d - 1): 價格增長係數
+            const inputValue = mulWadUp(buySpotPrice, frac);      // input = p_1 * (d^n - 1)/(d - 1): user 買入 n 個 token 時需要付出的總價
             
             // 輸出計算結果
             console.log("\n" + "=".repeat(50));
@@ -147,15 +124,15 @@ describe("ExponentialCurve", function () {
             );
             
             // 鏈下計算
-            const spotPriceD = new Decimal(spotPrice.toString());
-            const deltaD = new Decimal(delta.toString());
-            const deltaPowN = rpow(deltaD, numItems, WAD);
-            const newSpotPrice = mulWadUp(spotPriceD, deltaPowN);
-            const buySpotPrice = mulWadUp(spotPriceD, deltaD);
-            const numerator = deltaPowN.minus(WAD);
-            const denominator = deltaD.minus(WAD);
-            const frac = divWadUp(numerator, denominator);
-            const inputValue = mulWadUp(buySpotPrice, frac);
+            const spotPriceD = new Decimal(spotPrice.toString());  // p_0: 初始價格
+            const deltaD = new Decimal(delta.toString());          // d: 價格增長率
+            const deltaPowN = rpow(deltaD, numItems, WAD);        // d^n: 價格增長率的 n 次方
+            const newSpotPrice = mulWadUp(spotPriceD, deltaPowN); // p_n = p_0 * d^n: 新的現貨價格
+            const buySpotPrice = mulWadUp(spotPriceD, deltaD);    // p_1 = p_0 * d: 購買時的價格
+            const numerator = deltaPowN.minus(WAD);               // d^n - 1: 分子
+            const denominator = deltaD.minus(WAD);                // d - 1: 分母
+            const frac = divWadUp(numerator, denominator);        // (d^n - 1)/(d - 1): 價格增長係數
+            const inputValue = mulWadUp(buySpotPrice, frac);      // input = p_1 * (d^n - 1)/(d - 1): 總輸入值
             
             // 輸出計算結果
             console.log("\n" + "=".repeat(50));
@@ -204,7 +181,7 @@ describe("ExponentialCurve", function () {
                 { numItems: 100000, description: "超大量購買" },
                 { numItems: 1000000, description: "極大量購買" },
                 { numItems: 10000000, description: "接近上限購買" },
-                { numItems: 800000000, description: "上限購買" }
+                { numItems: 800000000, description: "上限購買" } // 8*1e8
             ];
 
             // 固定參數
@@ -221,7 +198,7 @@ describe("ExponentialCurve", function () {
                 const gasUsed = await contract.getBuyInfo.estimateGas(
                     spotPrice,
                     delta,
-                    testCase.numItems,
+                    testCase.numItems * 1e9,
                     feeMultiplier,
                     protocolFeeMultiplier
                 );
@@ -230,21 +207,21 @@ describe("ExponentialCurve", function () {
                 const onChainResult = await contract.getBuyInfo(
                     spotPrice,
                     delta,
-                    testCase.numItems,
+                    testCase.numItems* 1e9,
                     feeMultiplier,
                     protocolFeeMultiplier
                 );
 
                 // 鏈下計算
-                const spotPriceD = new Decimal(spotPrice.toString());
-                const deltaD = new Decimal(delta.toString());
-                const deltaPowN = rpow(deltaD, testCase.numItems, WAD);
-                const newSpotPrice = mulWadUp(spotPriceD, deltaPowN);
-                const buySpotPrice = mulWadUp(spotPriceD, deltaD);
-                const numerator = deltaPowN.minus(WAD);
-                const denominator = deltaD.minus(WAD);
-                const frac = divWadUp(numerator, denominator);
-                const inputValue = mulWadUp(buySpotPrice, frac);
+                const spotPriceD = new Decimal(spotPrice.toString());  // p_0: 初始價格
+                const deltaD = new Decimal(delta.toString());          // d: 價格增長率
+                const deltaPowN = rpow(deltaD, testCase.numItems, WAD);        // d^n: 價格增長率的 n 次方
+                const newSpotPrice = mulWadUp(spotPriceD, deltaPowN); // p_n = p_0 * d^n: 新的現貨價格
+                const buySpotPrice = mulWadUp(spotPriceD, deltaD);    // p_1 = p_0 * d: 購買時的價格
+                const numerator = deltaPowN.minus(WAD);               // d^n - 1: 分子
+                const denominator = deltaD.minus(WAD);                // d - 1: 分母
+                const frac = divWadUp(numerator, denominator);        // (d^n - 1)/(d - 1): 價格增長係數
+                const inputValue = mulWadUp(buySpotPrice, frac);      // input = p_1 * (d^n - 1)/(d - 1): 總輸入值
 
                 // 計算誤差
                 const spotPriceDiff = onChainResult.newSpotPrice - BigInt(newSpotPrice.toFixed(0));
@@ -283,8 +260,8 @@ describe("ExponentialCurve", function () {
                 
                 // Error analysis
                 console.log("\nError Analysis:");
-                console.log(`Spot price bias : ${result.spotPriceBias.toFixed(4)}%`);
-                console.log(`Input value bias: ${result.inputValueBias.toFixed(4)}%`);
+                console.log(`Spot price bias : ${result.spotPriceBias}%`);
+                console.log(`Input value bias: ${result.inputValueBias}%`);
                 
                 // Gas usage
                 console.log("\nGas Usage:");
@@ -299,6 +276,7 @@ describe("ExponentialCurve", function () {
             }
         });
     });
+
     /*
         describe("getSellInfo", function () {
             it("should calculate sell info correctly", async function () {

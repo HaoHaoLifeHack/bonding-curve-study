@@ -17,7 +17,7 @@ describe("HighStreetBancorBondingCurve", function () {
     });
 
     describe("Buy Operations", function () {
-        it("should calculate correct buy price", async function () {
+        it("should calculate correct buy price with 50% reserve ratio", async function () {
             const contract = await loadFixture(deployTestContract);
             
             // 設置測試數據
@@ -34,18 +34,105 @@ describe("HighStreetBancorBondingCurve", function () {
                 ethAmount,
             );
             
-            // 執行計算
-            const result = await contract.calculatePurchaseReturn(
+            // 鏈上計算結果
+            const onChainResult = await contract.calculatePurchaseReturn(
                 supply,
                 ethReserve,
                 reserveRatio,
                 ethAmount
             );
             
-            console.log(`Buy with ${ethers.formatEther(ethAmount)} ETH: ${result} tokens`);
+            // 鏈下計算結果
+            // 使用 JS 的 Math.pow 來計算
+            const baseN = Number(ethers.formatEther(ethReserve + ethAmount));  // ethReserve + ethAmount
+            const baseD = Number(ethers.formatEther(ethReserve));             // ethReserve
+            const expN = Number(reserveRatio);  // reserveRatio
+            const expD = 1000000;  // MAX_RESERVE_RATIO
+
+            // 計算 (baseN/baseD)^(expN/expD)
+            const powerResult = Math.pow(baseN / baseD, expN / expD);
+            
+            // 計算最終的 token 數量
+            const offChainResult = BigInt(
+                Math.floor(Number(supply) * (powerResult - 1))
+            );
+            
+            // 輸出計算結果
+            console.log("\nCalculation Results (50% Reserve Ratio):");
+            console.log("On-chain amount out (tokens):", onChainResult.toString());
+            console.log("Off-chain amount out (tokens):", offChainResult.toString());
+            
+            // 計算誤差
+            const difference = Number(onChainResult - offChainResult);
+            const percentageDiff = (Math.abs(difference) * 10000) / Number(onChainResult);
+            
+            console.log("Difference:", difference);
+            console.log("Percentage difference:", percentageDiff.toFixed(4), "%");
             console.log("calculatePurchaseReturn gas used:", gasUsed.toString());
             
-            expect(Number(result)).to.be.greaterThan(0);
+            // 驗證結果大於0
+            expect(Number(onChainResult)).to.be.greaterThan(0);
+            // 驗證誤差在可接受範圍內（0.01%）
+            expect(percentageDiff).to.be.lessThan(1);
+        });
+
+        it("should calculate correct buy price with 10% reserve ratio", async function () {
+            const contract = await loadFixture(deployTestContract);
+            
+            // 設置測試數據
+            const ethAmount = ethers.parseEther("10");  // 10 ETH
+            const supply = 1000n;   // 1000 tokens
+            const reserveRatio = 100000n;               // 10% reserve ratio
+            const ethReserve = ethers.parseEther("100"); // 100 ETH
+
+            // 測量 gas
+            const gasUsed = await contract.calculatePurchaseReturn.estimateGas(
+                supply,
+                ethReserve,
+                reserveRatio,
+                ethAmount,
+            );
+            
+            // 鏈上計算結果
+            const onChainResult = await contract.calculatePurchaseReturn(
+                supply,
+                ethReserve,
+                reserveRatio,
+                ethAmount
+            );
+            
+            // 鏈下計算結果
+            // 使用 JS 的 Math.pow 來計算
+            const baseN = Number(ethers.formatEther(ethReserve + ethAmount));  // ethReserve + ethAmount
+            const baseD = Number(ethers.formatEther(ethReserve));             // ethReserve
+            const expN = Number(reserveRatio);  // reserveRatio
+            const expD = 1000000;  // MAX_RESERVE_RATIO
+
+            // 計算 (baseN/baseD)^(expN/expD)
+            const powerResult = Math.pow(baseN / baseD, expN / expD);
+            
+            // 計算最終的 token 數量
+            const offChainResult = BigInt(
+                Math.floor(Number(supply) * (powerResult - 1))
+            );
+            
+            // 輸出計算結果
+            console.log("\nCalculation Results (10% Reserve Ratio):");
+            console.log("On-chain amount out (tokens):", onChainResult.toString());
+            console.log("Off-chain amount out (tokens):", offChainResult.toString());
+            
+            // 計算誤差
+            const difference = Number(onChainResult - offChainResult);
+            const percentageDiff = (Math.abs(difference) * 10000) / Number(onChainResult);
+            
+            console.log("Difference:", difference);
+            console.log("Percentage difference:", percentageDiff.toFixed(4), "%");
+            console.log("calculatePurchaseReturn gas used:", gasUsed.toString());
+            
+            // 驗證結果大於0
+            expect(Number(onChainResult)).to.be.greaterThan(0);
+            // 驗證誤差在可接受範圍內（0.01%）
+            expect(percentageDiff).to.be.lessThan(1);
         });
 
         // it("should calculate correct sell price", async function () {

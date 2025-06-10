@@ -145,6 +145,12 @@ library FixedPoint {
      * Useful when computing the complement for values with some level of relative error, as it strips this error and
      * prevents intermediate negative values.
      */
+    // 基本功能：
+    // 如果輸入的數值小於1，就回傳「1減去這個數值」
+    // 如果輸入的數值大於或等於1，就回傳0
+    // 為什麼需要這樣做：
+    // 在計算過程中，有時候會因為四捨五入或精度問題，導致「1減去某個數值」的結果變成負數
+    // 這個函數可以防止這種情況發生，確保結果永遠不會是負數
     function complement(uint256 x) internal pure returns (uint256 result) {
         // Equivalent to:
         // result = (x < ONE) ? (ONE - x) : 0
