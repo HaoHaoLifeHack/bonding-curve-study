@@ -169,7 +169,7 @@ describe("ExponentialCurve", function () {
             expect(Math.abs(inputValuePercentageDiff)).to.be.lessThan(1);
         });
 
-        it.only("should analyze price bias and gas cost across different purchase amounts", async function () {
+        it("should analyze price bias and gas cost across different purchase amounts", async function () {
             const contract = await loadFixture(deployContract);
             
             // 測試案例
@@ -181,7 +181,7 @@ describe("ExponentialCurve", function () {
                 { numItems: 100000, description: "超大量購買" },
                 { numItems: 1000000, description: "極大量購買" },
                 { numItems: 10000000, description: "接近上限購買" },
-                { numItems: 800000000, description: "上限購買" } // 8*1e8
+                { numItems: 800000000, description: "上限購買" } // 8e8
             ];
 
             // 固定參數
@@ -198,7 +198,7 @@ describe("ExponentialCurve", function () {
                 const gasUsed = await contract.getBuyInfo.estimateGas(
                     spotPrice,
                     delta,
-                    testCase.numItems * 1e9,
+                    testCase.numItems,
                     feeMultiplier,
                     protocolFeeMultiplier
                 );
@@ -207,7 +207,7 @@ describe("ExponentialCurve", function () {
                 const onChainResult = await contract.getBuyInfo(
                     spotPrice,
                     delta,
-                    testCase.numItems* 1e9,
+                    testCase.numItems,
                     feeMultiplier,
                     protocolFeeMultiplier
                 );
@@ -273,6 +273,77 @@ describe("ExponentialCurve", function () {
             for (const result of results) {
                 expect(Math.abs(result.spotPriceBias)).to.be.lessThan(0.01);  // 0.01% 誤差
                 expect(Math.abs(result.inputValueBias)).to.be.lessThan(0.01);  // 0.01% 誤差
+            }
+        });
+
+        it("should test max num items' decimals", async function () {
+            const contract = await loadFixture(deployContract);
+            
+            const maxNumItems = BigInt(8e8);
+            const maxDecimalsRange = 18; // 測試 1 到 18 位小數
+
+            // 固定參數
+            const spotPrice = ethers.parseUnits("0.00000002", 18);  // 2e-8 ETH
+            const delta = ethers.parseUnits("1.0000000042", 10);  // 1.0000000042
+            const feeMultiplier = 0;
+            const protocolFeeMultiplier = 0;
+
+            // 對每個小數位數進行測試
+            for (let maxDecimals = 1; maxDecimals < maxDecimalsRange; maxDecimals++) {
+                console.log(`\nTesting with ${maxDecimals} decimal places:`);
+                console.log("=".repeat(50));
+
+                // 結果收集
+                const results = [];
+
+                // 使用 BigInt 計算 numItems
+                const numItems = maxNumItems * BigInt(10) ** BigInt(maxDecimals);
+                console.log(`\nInput values:`);
+                console.log(`numItems: ${numItems}`);
+                console.log(`delta: ${delta}`);
+
+                // 測量 gas
+                try {
+                    const gasUsed = await contract.getBuyInfo.estimateGas(
+                        spotPrice,
+                        delta,
+                        numItems,
+                        feeMultiplier,
+                        protocolFeeMultiplier
+                    );
+
+                    // 鏈上計算
+                    const onChainResult = await contract.getBuyInfo(
+                        spotPrice,
+                        delta,
+                        numItems,
+                        feeMultiplier,
+                        protocolFeeMultiplier
+                    );
+
+                    // 收集結果
+                    const result = {
+                        numItems: numItems.toString(),
+                        description: `maxDecimals: ${maxDecimals}`,
+                        gasUsed: gasUsed.toString(),
+                        onChainSpotPrice: ethers.formatEther(onChainResult.newSpotPrice),
+                        onChainInputValue: ethers.formatEther(onChainResult.inputValue),
+                    };
+                    results.push(result);
+
+                    // 輸出測試案例的結果
+                    console.log(`\nTest Case: ${result.description} (${result.numItems} items)`);
+                    console.log("-".repeat(50));
+                    console.log("Price Comparison:");
+                    console.log(`On-chain  new spot price: ${result.onChainSpotPrice}`);
+                    console.log(`On-chain  input value: ${result.onChainInputValue}`);
+                    console.log("\nGas Usage:");
+                    console.log(`getBuyInfo gas used: ${result.gasUsed}`);
+                    console.log("-".repeat(50));
+                } catch (error) {
+                    console.log(`\nError occurred at maxDecimals = ${maxDecimals}:`);
+                    console.log(error);
+                }
             }
         });
     });

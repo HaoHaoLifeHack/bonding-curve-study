@@ -11,7 +11,7 @@ library FixedPointMathLib {
 
     uint256 internal constant MAX_UINT256 = 2**256 - 1;
 
-    uint256 internal constant WAD = 1e18; // The scalar of ETH and most ERC20s.
+    uint256 internal constant WAD = 1e10; // The scalar of ETH and most ERC20s.
 
     function mulWadDown(uint256 x, uint256 y) internal pure returns (uint256) {
         return mulDivDown(x, y, WAD); // Equivalent to (x * y) / WAD rounded down.
@@ -71,9 +71,9 @@ library FixedPointMathLib {
     }
 
     function rpow(
-        uint256 x,
-        uint256 n,
-        uint256 scalar
+        uint256 x,     // 底數
+        uint256 n,     // 指數
+        uint256 scalar // 縮放因子
     ) internal pure returns (uint256 z) {
         /// @solidity memory-safe-assembly
         assembly {
@@ -89,7 +89,7 @@ library FixedPointMathLib {
                     z := 0
                 }
             }
-            default {
+            default {  // 如果底數不是 0
                 switch mod(n, 2)
                 case 0 {
                     // If n is even, store scalar in z for now.
@@ -101,33 +101,41 @@ library FixedPointMathLib {
                 }
 
                 // Shifting right by 1 is like dividing by 2.
+                // 將 scalar 除以 2，用於後續的四捨五入
                 let half := shr(1, scalar)
 
                 for {
                     // Shift n right by 1 before looping to halve it.
+                    // 將指數 n 除以 2
                     n := shr(1, n)
-                } n {
+                } n { // 當 n 不為 0 時繼續循環
                     // Shift n right by 1 each iteration to halve it.
+                    // 每次循環都將 n 除以 2
                     n := shr(1, n)
                 } {
                     // Revert immediately if x ** 2 would overflow.
                     // Equivalent to iszero(eq(div(xx, x), x)) here.
+                    // 檢查 x 的平方是否會溢出
                     if shr(128, x) {
                         revert(0, 0)
                     }
 
                     // Store x squared.
+                    // 計算 x 的平方
                     let xx := mul(x, x)
 
                     // Round to the nearest number.
+                    // 加上 half 進行四捨五入
                     let xxRound := add(xx, half)
 
                     // Revert if xx + half overflowed.
+                    // 檢查加法是否溢出
                     if lt(xxRound, xx) {
                         revert(0, 0)
                     }
 
                     // Set x to scaled xxRound.
+                    // 將結果除以 scalar 進行縮放
                     x := div(xxRound, scalar)
 
                     // If n is even:
@@ -135,7 +143,7 @@ library FixedPointMathLib {
                         // Compute z * x.
                         let zx := mul(z, x)
 
-                        // If z * x overflowed:
+                        // 檢查 z * x 相乘 overflowed:
                         // then zx / x != z
                         // 如果 x 不為零，則回傳錯誤
 
@@ -146,7 +154,7 @@ library FixedPointMathLib {
                             }
                         }
 
-                        // 四捨五入處理
+                        // 加上 half 進行四捨五入
                         let zxRound := add(zx, half)
 
                         // Revert if zx + half overflowed.
@@ -155,12 +163,13 @@ library FixedPointMathLib {
                         // half = 2^255
                         // zxRound = 0（因為溢出）
                         // 0 < 2^255，所以會觸發溢出檢查
- 
+                        // 檢查加法是否溢出
                         if lt(zxRound, zx) {
                             revert(0, 0)
                         }
 
                         // Return properly scaled zxRound.
+                        // 將結果除以 scalar 進行縮放
                         z := div(zxRound, scalar)
                     }
                 }

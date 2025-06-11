@@ -193,9 +193,9 @@ library BalancerWeightedMath {
         // Because bI / (bI + aI) <= 1, the exponent rounds down.
 
         // Cannot exceed maximum in ratio.
-        if (amountIn > balanceIn.mulDown(_MAX_IN_RATIO)) {
-            revert MaxInRatio();
-        }
+        // if (amountIn > balanceIn.mulDown(_MAX_IN_RATIO)) {
+        //     revert MaxInRatio();
+        // }
 
         uint256 denominator = balanceIn + amountIn;
         uint256 base = balanceIn.divUp(denominator);
@@ -238,9 +238,9 @@ library BalancerWeightedMath {
         // Because b0 / (b0 - a0) >= 1, the exponent rounds up.
 
         // Cannot exceed maximum out ratio.
-        if (amountOut > balanceOut.mulDown(_MAX_OUT_RATIO)) {
-            revert MaxOutRatio();
-        }
+        // if (amountOut > balanceOut.mulDown(_MAX_OUT_RATIO)) {
+        //     revert MaxOutRatio();
+        // }
 
         uint256 base = balanceOut.divUp(balanceOut - amountOut);
         uint256 exponent = weightOut.divUp(weightIn);
