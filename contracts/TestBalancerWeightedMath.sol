@@ -6,6 +6,9 @@ import "./BalancerWeightedMath.sol";
 contract TestBalancerWeightedMath {
     using BalancerWeightedMath for uint256;
 
+    uint256 public constant WEIGHT_IN = 0.5e18;
+    uint256 public constant WEIGHT_OUT = 0.5e18;
+
     function testComputeOutGivenExactIn(
         uint256 balanceIn,
         uint256 weightIn,
